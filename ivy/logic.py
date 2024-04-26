@@ -174,6 +174,14 @@ class Apply(recstruct('Apply', [], ['func', '*terms'])):
                 str(self.func),
                 ', '.join(str(t) for t in self.terms)
             )
+    def __vmt__(self):
+        if len(self.terms) == 0:
+            return str(self.func)
+        else:
+            return '({} {})'.format(
+                str(self.func),
+                ' '.join(str(t) for t in self.terms)
+            ) 
 
     sort = property(lambda self: TopS if isinstance(self.func.sort,TopSort) else
                     self.func.sort.range)
@@ -193,6 +201,8 @@ class Eq(recstruct('Eq', [], ['t1', 't2'])):
         return t1, t2
     def __str__(self):
         return '({} == {})'.format(self.t1, self.t2)
+    def __vmt__(self):
+        return '(= {} {})'.format(self.t1, self.t2)
 
 
 # Ite expressions must be given a sort, as otherwise contructing trees of
@@ -217,6 +227,8 @@ class Ite(recstruct('Ite', ['sort'], ['cond', 't_then', 't_else'])):
         return sort, cond, t_then, t_else
     def __str__(self):
         return 'Ite({}, {}, {})'.format(self.cond, self.t_then, self.t_else)
+    def __vmt__(self):
+        return '(ite {} {} {})'.format(self.cond, self.t_then, self.t_else) 
 
 
 class Not(recstruct('Not', [], ['body'])):
@@ -232,6 +244,8 @@ class Not(recstruct('Not', [], ['body'])):
             return '({} != {})'.format(self.body.t1, self.body.t2)
         else:
             return 'Not({})'.format(self.body)
+    def __vmt__(self):
+        return '(not {})'.format(self.body) 
 
 
 class Globally(recstruct('Globally', ['environ'], ['body'])):
@@ -308,6 +322,13 @@ class And(recstruct('And', [], ['*terms'])):
         return 'And({})'.format(
             ', '.join(str(t) for t in self)
         )
+    def __vmt__(self):
+        if len(self) == 1:
+            return '{}'.format(' '.join(str(t) for t in self))
+        elif len(self) == 0:
+            return 'true'
+        else:
+            return '(and {})'.format(' '.join(str(t) for t in self))
 
 
 class Or(recstruct('Or', [], ['*terms'])):
@@ -328,7 +349,13 @@ class Or(recstruct('Or', [], ['*terms'])):
         return 'Or({})'.format(
             ', '.join(str(t) for t in self)
         )
-
+    def __vmt__(self):
+        if len(self) == 1:
+            return '{}'.format(' '.join(str(t) for t in self))
+        elif len(self) == 0:
+            return 'false'
+        else:
+            return '(or {})'.format(' '.join(str(t) for t in self))
 
 class Implies(recstruct('Implies', [], ['t1', 't2'])):
     __slots__ = ()
@@ -344,7 +371,8 @@ class Implies(recstruct('Implies', [], ['t1', 't2'])):
         return t1, t2
     def __str__(self):
         return 'Implies({}, {})'.format(self.t1, self.t2)
-
+    def __vmt__(self):
+        return '(=> {} {})'.format(self.t1, self.t2)
 
 class Iff(recstruct('Iff', [], ['t1', 't2'])):
     __slots__ = ()
@@ -360,7 +388,8 @@ class Iff(recstruct('Iff', [], ['t1', 't2'])):
         return t1, t2
     def __str__(self):
         return 'Iff({}, {})'.format(self.t1, self.t2)
-
+    def __vmt__(self):
+        return '(= {} {})'.format(self.t1, self.t2)
 
 class ForAll(recstruct('ForAll', ['variables'], ['body'])):
     __slots__ = ()
@@ -378,7 +407,10 @@ class ForAll(recstruct('ForAll', ['variables'], ['body'])):
         return '(ForAll {}. {})'.format(
             ', '.join('{}:{}'.format(v.name, v.sort) for v in sorted(self.variables)),
             self.body)
-
+    def __vmt__(self):
+         return '(forall ({}) {})'.format(
+             ' '.join('({} {})'.format(v.name, v.sort) for v in sorted(self.variables)),
+             self.body)
 
 class Exists(recstruct('Exists', ['variables'], ['body'])):
     __slots__ = ()
@@ -396,7 +428,10 @@ class Exists(recstruct('Exists', ['variables'], ['body'])):
         return '(Exists {}. {})'.format(
             ', '.join('{}:{}'.format(v.name, v.sort) for v in sorted(self.variables)),
             self.body)
-
+    def __vmt__(self):
+         return '(exists ({}) {})'.format(
+             ' '.join('({} {})'.format(v.name, v.sort) for v in sorted(self.variables)),
+             self.body)
 
 class Lambda(recstruct('Lambda', ['variables'], ['body'])):
     __slots__ = ()
