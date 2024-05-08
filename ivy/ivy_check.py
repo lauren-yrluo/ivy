@@ -8,7 +8,7 @@ from . import ivy_utils as utl
 from . import ivy_logic_utils as lut
 from . import ivy_logic as lg
 from . import ivy_utils as iu
-from . import ivy_ui
+#from . import ivy_ui
 from . import ivy_module as im
 from . import ivy_alpha
 from . import ivy_art
@@ -886,6 +886,29 @@ def check_module():
 
     cact = checked_action.get()
 
+def ivy_check(argv):
+    import signal
+    signal.signal(signal.SIGINT,signal.SIG_DFL)
+    from . import ivy_alpha
+    ivy_alpha.test_bottom = False # this prevents a useless SAT check
+    argv = ivy_init.read_params_from_arg(argv)
+    assert(len(argv) == 2 and argv[1].endswith('ivy'))
+    global some_bounded
+    some_bounded = False
+
+    with im.Module():
+        with utl.ErrorPrinter():
+            ivy_init.source_file(argv[1],ivy_init.open_read(argv[1]), create_isolate=False)
+            if isinstance(act.checked_assert.get(),iu.LocationTuple) and act.checked_assert.get().filename == 'none.ivy' and act.checked_assert.get().line == 0:
+                print('NOT CHECKED')
+                exit(0);
+            check_module()
+    if some_bounded:
+        print("BOUNDED")
+    if ivy_tactics.used_sorry:
+        print("OK, but used 'sorry'")
+    else:
+        print("OK")
 
 def main():
     import signal

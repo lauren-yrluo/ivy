@@ -51,6 +51,23 @@ def read_params():
         exit(1)
     sys.argv = sys.argv[0:1] + args
 
+def read_params_from_arg(argv):
+    ps = dict()
+    args = argv[1:]
+    while args and '=' in args[0]:
+        thing = str.split(args[0],'=')
+        if len(thing) > 2:
+            usage()
+        ps[thing[0]] = thing[1]
+        args = args[1:]
+    try:
+        set_parameters(ps)
+    except IvyError as e:
+        print(e)
+        exit(1)
+    argv = argv[0:1] + args
+    return argv
+
 # def ivy_init2():
 #     if len(sys.argv) < 2 or len(sys.argv) > 2:
 #         usage()
