@@ -909,6 +909,7 @@ def ivy_check(argv):
         print("OK, but used 'sorry'")
     else:
         print("OK")
+    return ('OK')
 
 def main():
     import signal
