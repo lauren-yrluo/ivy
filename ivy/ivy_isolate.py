@@ -28,6 +28,7 @@ pedantic = iu.BooleanParameter("pedantic",False)
 opt_prefer_impls = iu.BooleanParameter("prefer_impls",False)
 opt_keep_destructors = iu.BooleanParameter("keep_destructors",False)
 isolate_mode = iu.Parameter("isolate_mode","check")
+compile_with_invariants = iu.BooleanParameter("compile_with_invariants",False)
 
 # Used by extractor to switch off assumption of present invariants
 assume_invariants = iu.BooleanParameter("assume_invariants",True)
@@ -1036,7 +1037,7 @@ def isolate_component(mod,isolate_name,extra_with=[],extra_strip=None,after_init
         assumed_conjs = [c for c in mod.labeled_conjs if startswith_eq_some(c.label.rep,present,mod) and not vstartswith_eq_some(c.label.rep,verified,mod)]
         
     del mod.labeled_conjs[:]
-    if not create_imports.get(): # no conjectures if compiling
+    if not create_imports.get() or compile_with_invariants.get(): # no conjectures if compiling
         mod.labeled_conjs.extend(new_conjs)
 
     # filter the inits
