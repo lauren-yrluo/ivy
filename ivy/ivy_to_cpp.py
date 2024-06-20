@@ -4666,6 +4666,7 @@ int ask_ret(long long bound) {
 """)
 
     impl.append("""
+    struct ivy_assume_err {}; // lauren-yrluo added
 
     class classname_repl : public classname {
 
@@ -4681,10 +4682,11 @@ int ask_ret(long long bound) {
     }
     virtual void ivy_assume(bool truth,const char *msg){
         if (!truth) {
-            __ivy_out << "assumption_failed(\\"" << msg << "\\")" << std::endl;
-            std::cerr << msg << ": error: assumption failed\\n";
+            // __ivy_out << "assumption_failed(\\"" << msg << "\\")" << std::endl;  // lauren-yrluo modified 
+            // std::cerr << msg << ": error: assumption failed\\n";                 // lauren-yrluo modified
             CLOSE_TRACE
-            __ivy_exit(1);
+            // __ivy_exit(1);           // lauren-yrluo modified 
+            throw (ivy_assume_err());   // lauren-yrluo modified
         }
     }
     """.replace('classname',classname).replace('CLOSE_TRACE','__ivy_out << "}" << std::endl;' if opt_trace.get() else ''))
