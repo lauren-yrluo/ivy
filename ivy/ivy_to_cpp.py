@@ -3502,7 +3502,8 @@ def assign_symbol_from_model(header,sym,m):
     fun = lambda v: cstr(m.eval_to_constant(v))
     if hasattr(sort,'dom'):
         for args in itertools.product(*[list(range(sort_card(s))) for s in sym.sort.dom]):
-            term = sym(*[il.Symbol(str(a),s) for a,s in zip(args,sym.sort.dom)])
+            # term = sym(*[il.Symbol(str(a),s) for a,s in zip(args,sym.sort.dom)])              # lauren-yrluo fixed
+            term = sym(*[il.Symbol(str(s.extension[a]),s) for a,s in zip(args,sym.sort.dom)])   # lauren-yrluo fixed
             ctext = varname(sym.name) + ''.join('['+str(a)+']' for a in args)
             assign_symbol_value(header,[ctext],fun,term)
     else:
