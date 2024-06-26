@@ -1643,6 +1643,9 @@ def emit_initial_action(header,impl,classname):
         open_loop(impl,action.formal_params)
         action.emit(impl)
         close_loop(impl,action.formal_params)
+    # lauren-yrluo added
+    for action in im.module.initializers:
+        action[1].emit(impl)
     close_scope(impl)
     
 int_ctypes = ["bool","int","long long","unsigned","unsigned long long"]
