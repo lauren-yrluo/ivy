@@ -1606,7 +1606,8 @@ def emit_some_action(header,impl,name,action,classname,inline=False):
         p = action.formal_returns[0]
         if p not in action.formal_params:
             code.append(ctypefull(p.sort,classname=classname) + ' ' + varname(p.name) + ';\n')
-            mk_nondet_sym(code,p,p.name,0)
+            if target.get() != "qrm" : # lauren-yrluo added
+                mk_nondet_sym(code,p,p.name,0)
     with ivy_ast.ASTContext(action):
         action.emit(code)
     if name in import_callers:
@@ -1643,9 +1644,10 @@ def emit_initial_action(header,impl,classname):
         open_loop(impl,action.formal_params)
         action.emit(impl)
         close_loop(impl,action.formal_params)
-    # lauren-yrluo added
-    for action in im.module.initializers:
-        action[1].emit(impl)
+    if target.get() == "qrm":  # lauren-yrluo added
+        for action in im.module.initializers:
+            action = action[1]
+            action.emit(impl)
     close_scope(impl)
     
 int_ctypes = ["bool","int","long long","unsigned","unsigned long long"]
@@ -2128,7 +2130,7 @@ void * _thread_timer( void *tmr_void )
 #endif 
 """)
 
-    if target.get() == "repl":
+    if target.get() == "repl" or target.get() == "qrm":  # lauren-yrluo added "qrm"
         impl.append("""
 void CLASSNAME::install_reader(reader *r) {
     #ifdef _WIN32
@@ -2805,7 +2807,7 @@ z3::expr __z3_rename(const z3::expr &e, hash_map<std::string,std::string> &rn) {
             impl.append('template <>\n')
             impl.append('void __randomize<' + cfsname + '>( gen &g, const  z3::expr &v, const std::string &sort_name);\n')
         
-    if True or target.get() == "repl":
+    if True or target.get() == "repl" or target.get() == "qrm": # lauren-yrluo added "qrm"
         for sort_name in sorted(im.module.sort_destructors):
             csname = varname(sort_name)
             cfsname = classname + '::' + csname
@@ -2993,7 +2995,7 @@ z3::expr __z3_rename(const z3::expr &e, hash_map<std::string,std::string> &rn) {
                 emit_action_gen(sf,impl,name,action,classname)
 
     enum_sort_names = [s for s in sorted(il.sig.sorts) if isinstance(il.sig.sorts[s],il.EnumeratedSort)]
-    if True or target.get() == "repl":
+    if True or target.get() == "repl" or target.get() == "qrm": # lauren-yrluo added "qrm"
 
         # forward declare all the equality operations for variant types
 
@@ -3086,7 +3088,7 @@ z3::expr __z3_rename(const z3::expr &e, hash_map<std::string,std::string> &rn) {
                 close_scope(impl)
 
 
-        if target.get() in ["repl","test"]:
+        if target.get() in ["repl","test", "qrm"]:  # lauren-yrluo added "qrm"
 
             if  emit_main:
                 emit_repl_imports(header,impl,classname)
@@ -3258,7 +3260,7 @@ z3::expr __z3_rename(const z3::expr &e, hash_map<std::string,std::string> &rn) {
                     thing = "ivy.methodname(getargs)"
                     if action.formal_returns:
                         thing = '__ivy_out ' + number_format + ' << "= " << ' + thing + " << std::endl"
-                    if target.get() == "repl" and opt_trace.get():
+                    if (target.get() == "repl" or target.get() == "qrm") and opt_trace.get(): # lauren-yrluo added "qrm"
                         if action.formal_params:
                             trace_code = '__ivy_out ' + number_format + ' << "{}("'.format(actname.split(':')[-1]) + ' << "," '.join(' << {}'.format(arg) for arg in argstrings) + ' << ") {" << std::endl'
                         else:
@@ -4669,7 +4671,8 @@ int ask_ret(long long bound) {
 
 """)
 
-    impl.append("""
+    if target.get() == "qrm":     # lauren-yrluo added "qrm" 
+        impl.append("""
     struct ivy_assume_err {}; // lauren-yrluo added
 
     class classname_repl : public classname {
@@ -4693,7 +4696,30 @@ int ask_ret(long long bound) {
             throw (ivy_assume_err());   // lauren-yrluo modified
         }
     }
-    """.replace('classname',classname).replace('CLOSE_TRACE','__ivy_out << "}" << std::endl;' if opt_trace.get() else ''))
+        """.replace('classname',classname).replace('CLOSE_TRACE','__ivy_out << "}" << std::endl;' if opt_trace.get() else ''))
+    else:   # lauren-yrluo modified
+        impl.append("""
+    class classname_repl : public classname {
+
+    public:
+
+    virtual void ivy_assert(bool truth,const char *msg){
+        if (!truth) {
+            __ivy_out << "assertion_failed(\\"" << msg << "\\")" << std::endl;
+            std::cerr << msg << ": error: assertion failed\\n";
+            CLOSE_TRACE
+            __ivy_exit(1);
+        }
+    }
+    virtual void ivy_assume(bool truth,const char *msg){
+        if (!truth) {
+            __ivy_out << "assumption_failed(\\"" << msg << "\\")" << std::endl;   
+            std::cerr << msg << ": error: assumption failed\\n";                 
+            CLOSE_TRACE
+            __ivy_exit(1);            
+        }
+    }
+        """.replace('classname',classname).replace('CLOSE_TRACE','__ivy_out << "}" << std::endl;' if opt_trace.get() else ''))
 
     emit_param_decls(impl,classname+'_repl',im.module.params)
     impl.append(' : '+classname+'('+','.join(map(varname,im.module.params))+'){}\n')
@@ -5731,7 +5757,7 @@ public:
 };
 """.replace('classname',classname))
 
-target = iu.EnumeratedParameter("target",["impl","gen","repl","test","class"],"gen")
+target = iu.EnumeratedParameter("target",["impl","gen","repl","test","class", "qrm"],"gen")     # lauren-yrluo added "qrm"
 opt_classname = iu.Parameter("classname","")
 opt_build = iu.BooleanParameter("build",False)
 opt_trace = iu.BooleanParameter("trace",False)
