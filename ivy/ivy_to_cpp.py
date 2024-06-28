@@ -4274,8 +4274,11 @@ def open_bounded_loops(variables,body,exists=True):
     return header
 
 def close_bounded_loops(header,loops):
+    global indent_level  # lauren-yrluo fixed
     for i in loops:
         if i.endswith('{\n'):
+            indent_level -= 1   # lauren-yrluo fixed
+            indent(header)      # lauren-yrluo fixed
             header.append('}\n')
 
 
@@ -4305,7 +4308,10 @@ def emit_assign(self,header):
         tsort = il.FunctionSort(*([v.sort for v in vs] + [sort]))
         sym = il.Symbol(new_temp(header,sort=tsort),tsort)
         lhs = sym(*vs) if vs else sym
-        header.extend(loops)
+        for loop in loops: # lauren-yrluo fixed
+            indent(header)
+            header.append(loop)
+            indent_level += 1
 #        global temp_ctr
 #        tmp = '__tmp' + str(temp_ctr)
 #        temp_ctr += 1
@@ -4334,7 +4340,10 @@ def emit_assign(self,header):
 #            indent_level -= 1
 #            indent(header)
 #            header.append('}\n')
-        header.extend(loops)
+        for loop in loops: # lauren-yrluo fixed
+            indent(header)
+            header.append(loop)
+            indent_level += 1
         code = []
         indent(code)
         self.args[0].emit(header,code)
