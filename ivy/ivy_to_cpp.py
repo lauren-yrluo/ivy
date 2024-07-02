@@ -3510,6 +3510,7 @@ def assign_symbol_from_model(header,sym,m):
             # term = sym(*[il.Symbol(str(a),s) for a,s in zip(args,sym.sort.dom)])              # lauren-yrluo fixed
             term = sym(*[il.Symbol(str(s.extension[a]),s) for a,s in zip(args,sym.sort.dom)])   # lauren-yrluo fixed
             ctext = varname(sym.name) + ''.join('['+str(a)+']' for a in args)
+            indent(header)
             assign_symbol_value(header,[ctext],fun,term)
     else:
         assign_symbol_value(header,[varname(sym.name)],fun,sym)
@@ -4429,7 +4430,6 @@ def emit_assume_solution(self,header):
             close_loop(header,vs)
         elif sym not in is_derived and not is_native_sym(sym):
             if sym in used:
-                indent(header)
                 assign_symbol_from_model(header,sym,m)
 
 ia.AssumeAction.emit_assume_solution = emit_assume_solution
