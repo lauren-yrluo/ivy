@@ -4365,8 +4365,16 @@ def emit_sequence(self,header):
     indent(header)
     header.append('{\n')
     indent_level += 1
-    for a in self.args:
-        a.emit(header)
+    if target.get() == "qrm": # lauren-yrluo modified
+        for i, a in enumerate(self.args):
+            if i != 0 and a.name() == 'assume':  # lauren-yrluo modified: use z3 to enumerate the nondeterministic assignment
+                a.emit_assume_solution(header)
+                # a.emit(header)
+            else:
+                a.emit(header)
+    else:
+        for a in self.args:
+            a.emit(header)
     indent_level -= 1 
     indent(header)
     header.append('}\n')
@@ -4395,6 +4403,39 @@ def emit_assume(self,header):
 
 ia.AssumeAction.emit = emit_assume
 
+# lauren-yrluo added
+def emit_assume_solution(self,header):
+    import faulthandler
+    faulthandler.enable()
+    code = []
+    indent(code)
+    s = slv.z3.Solver()
+    s.add(slv.formula_to_z3(self.formula))
+    res = s.check()
+    if res == slv.z3.unsat:
+        return None
+    m = slv.get_model(s)
+    m = slv.HerbrandModel(s,m,ilu.used_symbols_clauses(self.formula))
+    if m == None:
+        print(self.formula)
+        raise iu.IvyError(None,'assumptions are inconsistent')
+    used = ilu.used_symbols_clauses(self.formula)
+    for sym in all_state_symbols():
+        if sym.name in im.module.destructor_sorts:
+            continue
+        if sym in im.module.params:
+            vs = variables(sym.sort.dom)
+            expr = sym(*vs) if vs else sym
+            open_loop(header,vs)
+            code_line(header,'this->' + code_eval(header,expr) + ' = ' + code_eval(header,expr))
+            close_loop(header,vs)
+        elif sym not in is_derived and not is_native_sym(sym):
+            if sym in used:
+                assign_symbol_from_model(header,sym,m)
+            else:
+                mk_nondet_sym(header,sym,'init',0)
+
+ia.AssumeAction.emit_assume_solution = emit_assume_solution
 
 def emit_call(self,header,ignore_vars=False):
     # tricky: a call can have variables on the lhs. we lower this to
