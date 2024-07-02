@@ -3494,7 +3494,7 @@ def assign_symbol_value(header,lhs_text,m,v,same=False):
     else:
         mv = m(v)
         if mv != None:           
-            header.append('    ' + '.'.join(lhs_text) + ' = ' + m(v) + ';\n')
+            header.append('.'.join(lhs_text) + ' = ' + m(v) + ';\n')
         
 
 def assign_symbol_from_model(header,sym,m):
@@ -4429,6 +4429,7 @@ def emit_assume_solution(self,header):
             close_loop(header,vs)
         elif sym not in is_derived and not is_native_sym(sym):
             if sym in used:
+                indent(header)
                 assign_symbol_from_model(header,sym,m)
 
 ia.AssumeAction.emit_assume_solution = emit_assume_solution
