@@ -4407,8 +4407,6 @@ ia.AssumeAction.emit = emit_assume
 def emit_assume_solution(self,header):
     import faulthandler
     faulthandler.enable()
-    code = []
-    indent(code)
     s = slv.z3.Solver()
     s.add(slv.formula_to_z3(self.formula))
     res = s.check()
@@ -4432,8 +4430,6 @@ def emit_assume_solution(self,header):
         elif sym not in is_derived and not is_native_sym(sym):
             if sym in used:
                 assign_symbol_from_model(header,sym,m)
-            else:
-                mk_nondet_sym(header,sym,'init',0)
 
 ia.AssumeAction.emit_assume_solution = emit_assume_solution
 
