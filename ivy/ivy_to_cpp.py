@@ -4363,17 +4363,17 @@ ia.HavocAction.emit = emit_havoc
 
 def emit_sequence(self,header):
     global indent_level
-    indent(header)
-    header.append('{\n')
-    indent_level += 1
     if target.get() == "qrm": # lauren-yrluo modified: use z3 to enumerate the nondeterministic assignment
         emit_qrm_sequence(self.args, header)
     else:
+        indent(header)
+        header.append('{\n')
+        indent_level += 1
         for a in self.args:
             a.emit(header)
-    indent_level -= 1 
-    indent(header)
-    header.append('}\n')
+        indent_level -= 1 
+        indent(header)
+        header.append('}\n')
 
 ia.Sequence.emit = emit_sequence
 
@@ -4488,10 +4488,11 @@ def emit_assume_solutions(formula):
         model = slv.get_model(solver)
         model = slv.HerbrandModel(solver, model, ilu.used_symbols_clauses(formula))
         code_block = emit_one_assume_solution(formula, model)
-        print(''.join(code_block))
         code_blocks.append(code_block)
         block_one_assume_solution(formula, solver, model)
         res = solver.check()
+        if res == slv.z3.unsat:
+            return code_blocks 
     return code_blocks
 
 def emit_deterministic_args(args):
@@ -4501,9 +4502,12 @@ def emit_deterministic_args(args):
             continue
         else:
             det_args.append(a)
+    global indent_level
+    indent_level += 1
     code_block = []
     for a in det_args: 
         a.emit(code_block)
+    indent_level -= 1
     return code_block
 
 def emit_nondeterministic_args(args):
@@ -4511,8 +4515,10 @@ def emit_nondeterministic_args(args):
     for i, a in enumerate(args):
         if i != 0 and a.name() == 'assume': 
             nondet_formulas.append(a.formula)
-    nondet_formula = il.And(*nondet_formulas)
-    code_blocks = emit_assume_solutions(nondet_formula)
+    code_blocks = []
+    if len(nondet_formulas) > 0:
+        nondet_formula = il.And(*nondet_formulas)
+        code_blocks = emit_assume_solutions(nondet_formula)
     return code_blocks
 
 def emit_qrm_sequence(args, header):
@@ -4524,7 +4530,7 @@ def emit_qrm_sequence(args, header):
         indent(header)
         header.append('static int qrm_solution_count = 0;\n')
         indent(header)
-        header.append(f'const int max_qrm_solution_count = {len(nondet_code_blocks)}')
+        header.append(f'const int max_qrm_solution_count = {len(nondet_code_blocks)};' + '\n')
         for i, nondet_code_block in enumerate(nondet_code_blocks):
             if i == 0:
                 indent(header)
