@@ -4474,26 +4474,24 @@ def block_one_assume_solution(formula, solver, model):
     block_fmla = il.And(*block_fmla)
     solver.add(slv.formula_to_z3(block_fmla))
 
-def emit_assume_solutions(self,header):
+def emit_assume_solutions(formula):
     import faulthandler
     faulthandler.enable()
     solver = slv.z3.Solver()
-    solver.add(slv.formula_to_z3(self.formula))
+    solver.add(slv.formula_to_z3(formula))
     res = solver.check()
     if res == slv.z3.unsat:
-        print(self.formula)
+        print(formula)
         raise iu.IvyError(None,'assumptions are inconsistent')
     code_blocks = []
     while res == slv.z3.sat:
         model = slv.get_model(solver)
-        model = slv.HerbrandModel(solver, model, ilu.used_symbols_clauses(self.formula))
-        code_block = emit_one_assume_solution(self.formula, model)
+        model = slv.HerbrandModel(solver, model, ilu.used_symbols_clauses(formula))
+        code_block = emit_one_assume_solution(formula, model)
         code_blocks.append(code_block)
-        block_one_assume_solution(self.formula, solver, model)
+        block_one_assume_solution(formula, solver, model)
         res = solver.check()
     return code_blocks
-
-ia.AssumeAction.emit_assume_solutions = emit_assume_solutions
 
 def emit_deterministic_args(args):
     det_args    = []
@@ -4508,13 +4506,12 @@ def emit_deterministic_args(args):
     return code_block
 
 def emit_nondeterministic_args(args):
-    nondet_args    = []
+    nondet_formulas = []
     for i, a in enumerate(args):
         if i != 0 and a.name() == 'assume': 
-            nondet_args.append(a)
-    code_blocks = []
-    for a in nondet_args: 
-        a.emit_assume_solutions(code_blocks)
+            nondet_formulas.append(a.formula)
+    nondet_formula = il.And(*nondet_formulas)
+    code_blocks = emit_assume_solutions(nondet_formula)
     return code_blocks
 
 def emit_qrm_sequence(args, header):
