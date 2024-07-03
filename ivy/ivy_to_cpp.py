@@ -4409,6 +4409,7 @@ def emit_one_assume_solution(formula, model, code, qrm_solution_count):
     global indent_level
     indent(code)
     code.append(f'if (qrm_solution_count == {qrm_solution_count})' + '{\n')
+    indent_level += 1
     used = ilu.used_symbols_clauses(formula)
     for sym in all_state_symbols():
         if sym.name in im.module.destructor_sorts:
@@ -4502,7 +4503,7 @@ def emit_assume_solutions(self,header):
     indent(header)
     header.append('static int qrm_solution_count = 0;\n')
     indent(header)
-    header.append(f'int max_qrm_solution_count = {qrm_solution_count};' + '\n')
+    header.append(f'const int max_qrm_solution_count = {qrm_solution_count};' + '\n')
     header.extend(code)
     indent(header)
     header.append('++ qrm_solution_count;\n')
