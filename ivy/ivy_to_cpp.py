@@ -4405,11 +4405,11 @@ def emit_assume(self,header):
 ia.AssumeAction.emit = emit_assume
 
 #### lauren-yrluo added for qrm ####
-def emit_one_assume_solution(self, model, code, qrm_solution_count):
+def emit_one_assume_solution(formula, model, code, qrm_solution_count):
     global indent_level
     indent(code)
     code.append(f'if (qrm_solution_count == {qrm_solution_count})' + '{\n')
-    used = ilu.used_symbols_clauses(self.formula)
+    used = ilu.used_symbols_clauses(formula)
     for sym in all_state_symbols():
         if sym.name in im.module.destructor_sorts:
             continue
@@ -4464,8 +4464,8 @@ def get_block_fmla_for_symbol(symbol, model):
     block_fmla = il.Or(*block_symbols)
     return block_fmla
 
-def block_one_assume_solution(self, solver, model):
-    used = ilu.used_symbols_clauses(self.formula)
+def block_one_assume_solution(formula, solver, model):
+    used = ilu.used_symbols_clauses(formula)
     block_fmla = []
     for sym in all_state_symbols():
         if sym.name in im.module.destructor_sorts:
@@ -4494,9 +4494,9 @@ def emit_assume_solutions(self,header):
     while res == slv.z3.sat:
         model = slv.get_model(solver)
         model = slv.HerbrandModel(solver, model, ilu.used_symbols_clauses(self.formula))
-        self.emit_one_assume_solution(model, code, qrm_solution_count)
+        emit_one_assume_solution(self.formula, model, code, qrm_solution_count)
         qrm_solution_count += 1
-        self.block_one_assume_solution(solver, model)
+        block_one_assume_solution(self.formula, solver, model)
         res = solver.check()
 
     indent(header)
