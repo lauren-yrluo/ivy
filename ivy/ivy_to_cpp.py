@@ -4366,13 +4366,8 @@ def emit_sequence(self,header):
     indent(header)
     header.append('{\n')
     indent_level += 1
-    if target.get() == "qrm": # lauren-yrluo modified
-        for i, a in enumerate(self.args):
-            if i != 0 and a.name() == 'assume':  # lauren-yrluo modified: use z3 to enumerate the nondeterministic assignment
-                a.emit_assume_solutions(header)
-                # a.emit(header)
-            else:
-                a.emit(header)
+    if target.get() == "qrm": # lauren-yrluo modified: use z3 to enumerate the nondeterministic assignment
+        emit_qrm_sequence(self.args, header)
     else:
         for a in self.args:
             a.emit(header)
@@ -4405,10 +4400,9 @@ def emit_assume(self,header):
 ia.AssumeAction.emit = emit_assume
 
 #### lauren-yrluo added for qrm ####
-def emit_one_assume_solution(formula, model, code, qrm_solution_count):
+def emit_one_assume_solution(formula, model):
     global indent_level
-    indent(code)
-    code.append(f'if (qrm_solution_count == {qrm_solution_count})' + '{\n')
+    code_block = []
     indent_level += 1
     used = ilu.used_symbols_clauses(formula)
     for sym in all_state_symbols():
@@ -4417,15 +4411,14 @@ def emit_one_assume_solution(formula, model, code, qrm_solution_count):
         if sym in im.module.params:
             vs = variables(sym.sort.dom)
             expr = sym(*vs) if vs else sym
-            open_loop(code,vs)
-            code_line(code,'this->' + code_eval(code,expr) + ' = ' + code_eval(code,expr))
-            close_loop(code,vs)
+            open_loop(code_block,vs)
+            code_line(code_block,'this->' + code_eval(code_block,expr) + ' = ' + code_eval(code_block,expr))
+            close_loop(code_block,vs)
         elif sym not in is_derived and not is_native_sym(sym):
             if sym in used:
-                assign_symbol_from_model(code,sym,model)
+                assign_symbol_from_model(code_block,sym,model)
     indent_level -= 1
-    indent(code)
-    code.append('}\n')
+    return code_block
 
 def eval_symbol_value(eval_func, symbol):
     sort = symbol.sort
@@ -4490,25 +4483,63 @@ def emit_assume_solutions(self,header):
     if res == slv.z3.unsat:
         print(self.formula)
         raise iu.IvyError(None,'assumptions are inconsistent')
-    code = []
-    qrm_solution_count = 0
+    code_blocks = []
     while res == slv.z3.sat:
         model = slv.get_model(solver)
         model = slv.HerbrandModel(solver, model, ilu.used_symbols_clauses(self.formula))
-        emit_one_assume_solution(self.formula, model, code, qrm_solution_count)
-        qrm_solution_count += 1
+        code_block = emit_one_assume_solution(self.formula, model)
+        code_blocks.append(code_block)
         block_one_assume_solution(self.formula, solver, model)
         res = solver.check()
-
-    indent(header)
-    header.append('static int qrm_solution_count = 0;\n')
-    indent(header)
-    header.append(f'const int max_qrm_solution_count = {qrm_solution_count};' + '\n')
-    header.extend(code)
-    indent(header)
-    header.append('++ qrm_solution_count;\n')
+    return code_blocks
 
 ia.AssumeAction.emit_assume_solutions = emit_assume_solutions
+
+def emit_deterministic_args(args):
+    det_args    = []
+    for i, a in enumerate(args):
+        if i != 0 and a.name() == 'assume': 
+            continue
+        else:
+            det_args.append(a)
+    code_block = []
+    for a in det_args: 
+        a.emit(code_block)
+    return code_block
+
+def emit_nondeterministic_args(args):
+    nondet_args    = []
+    for i, a in enumerate(args):
+        if i != 0 and a.name() == 'assume': 
+            nondet_args.append(a)
+    code_blocks = []
+    for a in nondet_args: 
+        a.emit_assume_solutions(code_blocks)
+    return code_blocks
+
+def emit_qrm_sequence(args, header):
+    det_code_block     = emit_deterministic_args(args)
+    nondet_code_blocks = emit_nondeterministic_args(args)
+    if len(nondet_code_blocks) == 0:
+        header.extend(det_code_block)
+    else:
+        indent(header)
+        header.append('static int qrm_solution_count = 0;\n')
+        indent(header)
+        header.append(f'const int max_qrm_solution_count = {len(nondet_code_blocks)}')
+        for i, nondet_code_block in enumerate(nondet_code_blocks):
+            if i == 0:
+                indent(header)
+                header.append('if (qrm_solution_count == 0){\n')
+                header.extend(det_code_block)
+            else:
+                indent(header)
+                header.append(f'else if (qrm_solution_count == {i})' + '{\n')
+            header.extend(nondet_code_block)
+            indent(header)
+            header.append('}\n')
+        indent(header)
+        header.append('++ qrm_solution_count;\n')
 #### lauren-yrluo added for qrm ####
 
 def emit_call(self,header,ignore_vars=False):
