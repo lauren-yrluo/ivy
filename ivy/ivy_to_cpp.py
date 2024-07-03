@@ -4369,7 +4369,7 @@ def emit_sequence(self,header):
     if target.get() == "qrm": # lauren-yrluo modified
         for i, a in enumerate(self.args):
             if i != 0 and a.name() == 'assume':  # lauren-yrluo modified: use z3 to enumerate the nondeterministic assignment
-                a.emit_assume_solution(header)
+                a.emit_assume_solutions(header)
                 # a.emit(header)
             else:
                 a.emit(header)
@@ -4404,20 +4404,11 @@ def emit_assume(self,header):
 
 ia.AssumeAction.emit = emit_assume
 
-# lauren-yrluo added
-def emit_assume_solution(self,header):
-    import faulthandler
-    faulthandler.enable()
-    s = slv.z3.Solver()
-    s.add(slv.formula_to_z3(self.formula))
-    res = s.check()
-    if res == slv.z3.unsat:
-        return None
-    m = slv.get_model(s)
-    m = slv.HerbrandModel(s,m,ilu.used_symbols_clauses(self.formula))
-    if m == None:
-        print(self.formula)
-        raise iu.IvyError(None,'assumptions are inconsistent')
+#### lauren-yrluo added for qrm ####
+def emit_one_assume_solution(self, model, code, qrm_solution_count):
+    global indent_level
+    indent(code)
+    code.append(f'if (qrm_solution_count == {qrm_solution_count})' + '{\n')
     used = ilu.used_symbols_clauses(self.formula)
     for sym in all_state_symbols():
         if sym.name in im.module.destructor_sorts:
@@ -4425,14 +4416,99 @@ def emit_assume_solution(self,header):
         if sym in im.module.params:
             vs = variables(sym.sort.dom)
             expr = sym(*vs) if vs else sym
-            open_loop(header,vs)
-            code_line(header,'this->' + code_eval(header,expr) + ' = ' + code_eval(header,expr))
-            close_loop(header,vs)
+            open_loop(code,vs)
+            code_line(code,'this->' + code_eval(code,expr) + ' = ' + code_eval(code,expr))
+            close_loop(code,vs)
         elif sym not in is_derived and not is_native_sym(sym):
             if sym in used:
-                assign_symbol_from_model(header,sym,m)
+                assign_symbol_from_model(code,sym,model)
+    indent_level -= 1
+    indent(code)
+    code.append('}\n')
 
-ia.AssumeAction.emit_assume_solution = emit_assume_solution
+def eval_symbol_value(eval_func, symbol):
+    sort = symbol.sort
+    if hasattr(sort,'name') and sort.name in im.module.sort_destructors:
+        for sym in im.module.sort_destructors[sort.name]:
+            check_representable(sym,skip_args=1)
+            dom = sym.sort.dom[1:]
+            if dom:
+                for args in itertools.product(*[list(range(sort_card(s))) for s in dom]):
+                    term = sym(*([symbol] + [il.Symbol(str(a),s) for a,s in zip(args,dom)]))
+                    return eval_symbol_value(eval_func,term)
+            else:
+                return eval_symbol_value(eval_func, sym(symbol))
+    else:
+        return eval_func(symbol)
+
+def get_block_fmla_for_symbol(symbol, model):
+    if slv.solver_name(symbol) == None:
+        return None # skip interpreted symbols
+    if symbol.name in im.module.destructor_sorts:
+        return None # skip structs
+    name, sort = symbol.name, symbol.sort
+    really_check_representable(symbol)
+    eval_func  = lambda v: model.eval_to_constant(v)
+    block_symbols = []
+    if hasattr(sort,'dom'):
+        for args in itertools.product(*[list(range(sort_card(s))) for s in symbol.sort.dom]):
+            # term = sym(*[il.Symbol(str(a),s) for a,s in zip(args,sym.sort.dom)])              # lauren-yrluo fixed
+            term  = symbol(*[il.Symbol(str(s.extension[a]),s) for a,s in zip(args,symbol.sort.dom)])   # lauren-yrluo fixed
+            value = eval_symbol_value(eval_func,term)
+            if value != None:
+                block_symbols.append(il.Not(il.Equals(term, value)))
+    else:
+        value = eval_symbol_value(eval_func,symbol)
+        if value != None:
+            block_symbols.append(il.Not(il.Equals(symbol, value)))
+    block_fmla = il.Or(*block_symbols)
+    return block_fmla
+
+def block_one_assume_solution(self, solver, model):
+    used = ilu.used_symbols_clauses(self.formula)
+    block_fmla = []
+    for sym in all_state_symbols():
+        if sym.name in im.module.destructor_sorts:
+            continue
+        if sym in im.module.params:
+            continue 
+        elif sym not in is_derived and not is_native_sym(sym):
+            if sym in used:
+                block_sym_fmla = get_block_fmla_for_symbol(sym, model) 
+                if block_sym_fmla != None: 
+                    block_fmla.append(block_sym_fmla)
+    block_fmla = il.And(*block_fmla)
+    solver.add(slv.formula_to_z3(block_fmla))
+
+def emit_assume_solutions(self,header):
+    import faulthandler
+    faulthandler.enable()
+    solver = slv.z3.Solver()
+    solver.add(slv.formula_to_z3(self.formula))
+    res = solver.check()
+    if res == slv.z3.unsat:
+        print(self.formula)
+        raise iu.IvyError(None,'assumptions are inconsistent')
+    code = []
+    qrm_solution_count = 0
+    while res == slv.z3.sat:
+        model = slv.get_model(solver)
+        model = slv.HerbrandModel(solver, model, ilu.used_symbols_clauses(self.formula))
+        self.emit_one_assume_solution(model, code, qrm_solution_count)
+        qrm_solution_count += 1
+        self.block_one_assume_solution(solver, model)
+        res = solver.check()
+
+    indent(header)
+    header.append('static int qrm_solution_count = 0;\n')
+    indent(header)
+    header.append(f'int max_qrm_solution_count = {qrm_solution_count};' + '\n')
+    header.extend(code)
+    indent(header)
+    header.append('++ qrm_solution_count;\n')
+
+ia.AssumeAction.emit_assume_solutions = emit_assume_solutions
+#### lauren-yrluo added for qrm ####
 
 def emit_call(self,header,ignore_vars=False):
     # tricky: a call can have variables on the lhs. we lower this to
