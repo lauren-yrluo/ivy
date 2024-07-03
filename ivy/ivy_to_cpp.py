@@ -4488,6 +4488,7 @@ def emit_assume_solutions(formula):
         model = slv.get_model(solver)
         model = slv.HerbrandModel(solver, model, ilu.used_symbols_clauses(formula))
         code_block = emit_one_assume_solution(formula, model)
+        print(''.join(code_block))
         code_blocks.append(code_block)
         block_one_assume_solution(formula, solver, model)
         res = solver.check()
