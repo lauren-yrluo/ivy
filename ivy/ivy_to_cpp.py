@@ -4400,11 +4400,10 @@ def emit_assume(self,header):
 ia.AssumeAction.emit = emit_assume
 
 #### lauren-yrluo added for qrm ####
-def emit_one_assume_solution(formula, model):
+def emit_one_assume_solution(model, model_vocab):
     global indent_level
     code_block = []
     indent_level += 1
-    used = ilu.used_symbols_clauses(formula)
     for sym in all_state_symbols():
         if sym.name in im.module.destructor_sorts:
             continue
@@ -4415,7 +4414,7 @@ def emit_one_assume_solution(formula, model):
             code_line(code_block,'this->' + code_eval(code_block,expr) + ' = ' + code_eval(code_block,expr))
             close_loop(code_block,vs)
         elif sym not in is_derived and not is_native_sym(sym):
-            if sym in used:
+            if sym in model_vocab:
                 assign_symbol_from_model(code_block,sym,model)
     indent_level -= 1
     return code_block
@@ -4458,8 +4457,7 @@ def get_block_fmla_for_symbol(symbol, model):
     block_fmla = il.Or(*block_symbols)
     return block_fmla
 
-def block_one_assume_solution(formula, solver, model):
-    used = ilu.used_symbols_clauses(formula)
+def block_one_assume_solution(solver, model, model_vocab):
     block_fmla = []
     for sym in all_state_symbols():
         if sym.name in im.module.destructor_sorts:
@@ -4467,14 +4465,14 @@ def block_one_assume_solution(formula, solver, model):
         if sym in im.module.params:
             continue 
         elif sym not in is_derived and not is_native_sym(sym):
-            if sym in used:
+            if sym in model_vocab:
                 block_sym_fmla = get_block_fmla_for_symbol(sym, model) 
                 if block_sym_fmla != None: 
                     block_fmla.append(block_sym_fmla)
     block_fmla = il.And(*block_fmla)
     solver.add(slv.formula_to_z3(block_fmla))
 
-def emit_assume_solutions(formula):
+def emit_assume_solutions(formula, model_vocab):
     import faulthandler
     faulthandler.enable()
     solver = slv.z3.Solver()
@@ -4483,42 +4481,64 @@ def emit_assume_solutions(formula):
     if res == slv.z3.unsat:
         print(formula)
         raise iu.IvyError(None,'assumptions are inconsistent')
-    code_blocks = []
+    code_blocks  = []
     while res == slv.z3.sat:
         model = slv.get_model(solver)
-        model = slv.HerbrandModel(solver, model, ilu.used_symbols_clauses(formula))
-        code_block = emit_one_assume_solution(formula, model)
+        model = slv.HerbrandModel(solver, model, model_vocab)
+        code_block = emit_one_assume_solution(model, model_vocab)
         code_blocks.append(code_block)
-        block_one_assume_solution(formula, solver, model)
+        block_one_assume_solution(solver, model, model_vocab)
         res = solver.check()
         if res == slv.z3.unsat:
             return code_blocks 
     return code_blocks
 
-def emit_deterministic_args(args):
+def emit_deterministic_args(actions):
     det_args    = []
-    for i, a in enumerate(args):
-        if i != 0 and a.name() == 'assume': 
+    for i, action in enumerate(actions):
+        if (i != 0 and action.name() == 'assume' or      # let z3 solve assumption
+            action.name() == 'havoc'):                   # x := *
             continue
         else:
-            det_args.append(a)
+            det_args.append(action)
     global indent_level
     indent_level += 1
     code_block = []
-    for a in det_args: 
-        a.emit(code_block)
+    for action in det_args: 
+        action.emit(code_block)
     indent_level -= 1
     return code_block
 
-def emit_nondeterministic_args(args):
+def get_deterministc_used_symbols(actions):
+    symbols = set()
+    for i, action in enumerate(actions):
+        if (i != 0 and action.name() == 'assume' or      # let z3 solve assumption
+            action.name() == 'havoc'):                   # x := *
+            continue
+        else:
+            for arg in action.args:
+                symbols.update(ilu.used_symbols_clauses(arg))
+    return symbols
+
+def get_nondet_model_vocabulary(nondet_formula, actions):
+    det_symbols = get_deterministc_used_symbols(actions)
+    model_vocab = set()
+    for sym in all_state_symbols():
+        if not sym in det_symbols:
+            model_vocab.add(sym)
+    model_vocab.update(ilu.used_symbols_clauses(nondet_formula))
+    return model_vocab
+
+def emit_nondeterministic_args(actions):
     nondet_formulas = []
-    for i, a in enumerate(args):
-        if i != 0 and a.name() == 'assume': 
-            nondet_formulas.append(a.formula)
+    for i, action in enumerate(actions):
+        if i != 0 and action.name() == 'assume': 
+            nondet_formulas.append(action.formula)
     code_blocks = []
     if len(nondet_formulas) > 0:
         nondet_formula = il.And(*nondet_formulas)
-        code_blocks = emit_assume_solutions(nondet_formula)
+        model_vocab    = get_nondet_model_vocabulary(nondet_formula, actions)
+        code_blocks = emit_assume_solutions(nondet_formula, model_vocab)
     return code_blocks
 
 def emit_qrm_sequence(args, header):
@@ -6065,7 +6085,8 @@ def main_int(is_ivyc):
 
                     # Tricky: cone of influence may eliminate this symbol, but
                     # run-time accesses it.
-                    if '_generating' not in im.module.sig.symbols:
+                    # if '_generating' not in im.module.sig.symbols:                         # lauren-yrluo modified
+                    if '_generating' not in im.module.sig.symbols and target.get() != 'qrm': # lauren-yrluo modified
                         im.module.sig.add_symbol('_generating',il.BooleanSort())
 
 
