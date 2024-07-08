@@ -1638,9 +1638,9 @@ def init_method():
 def emit_initial_action(header,impl,classname):
     global thunks
     thunks = impl
-    if target.get() == "qrm":  # lauren-yrluo added
-        code_line(header, 'struct ivy_nondet_except {}; // lauren-yrluo added')
     code_line(header,'void __init()')
+    if target.get() == "qrm":  # lauren-yrluo added
+        impl.append('struct ivy_nondet_except {}; // lauren-yrluo added\n')
     open_scope(impl,line = 'void ' + classname + '::__init()')
     for action in im.module.initial_actions:
         open_loop(impl,action.formal_params)
