@@ -4542,6 +4542,7 @@ def emit_nondeterministic_args(actions):
     return code_blocks
 
 def emit_qrm_sequence(args, header):
+    global indent_level
     det_code_block     = emit_deterministic_args(args)
     nondet_code_blocks = emit_nondeterministic_args(args)
     if len(nondet_code_blocks) == 0:
@@ -4564,6 +4565,14 @@ def emit_qrm_sequence(args, header):
             header.append('}\n')
         indent(header)
         header.append('++ qrm_solution_count;\n')
+        indent(header)
+        header.append('if (qrm_solution_count != max_qrm_solution_count){\n')
+        indent_level += 1
+        indent(header)
+        header.append('throw (ivy_nondet_except());\n')
+        indent_level -= 1
+        indent(header)
+        header.append('}\n')
 #### lauren-yrluo added for qrm ####
 
 def emit_call(self,header,ignore_vars=False):
@@ -4852,7 +4861,8 @@ int ask_ret(long long bound) {
 
     if target.get() == "qrm":     # lauren-yrluo added "qrm" 
         impl.append("""
-    struct ivy_assume_err {}; // lauren-yrluo added
+    struct ivy_assume_err {};    // lauren-yrluo added
+    struct ivy_nondet_except {}; // lauren-yrluo added
 
     class classname_repl : public classname {
 
