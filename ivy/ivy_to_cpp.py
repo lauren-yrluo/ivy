@@ -1638,6 +1638,8 @@ def init_method():
 def emit_initial_action(header,impl,classname):
     global thunks
     thunks = impl
+    if target.get() == "qrm":  # lauren-yrluo added
+        code_line(header, 'struct ivy_nondet_except {}; // lauren-yrluo added')
     code_line(header,'void __init()')
     open_scope(impl,line = 'void ' + classname + '::__init()')
     for action in im.module.initial_actions:
@@ -4862,7 +4864,6 @@ int ask_ret(long long bound) {
     if target.get() == "qrm":     # lauren-yrluo added "qrm" 
         impl.append("""
     struct ivy_assume_err {};    // lauren-yrluo added
-    struct ivy_nondet_except {}; // lauren-yrluo added
 
     class classname_repl : public classname {
 
