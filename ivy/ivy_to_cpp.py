@@ -4561,6 +4561,8 @@ def emit_qrm_sequence(args, header):
         header.extend(det_code_block)
     else:
         indent(header)
+        header.append('/** QRM enumerates all satisfying model for reachability **/\n')
+        indent(header)
         header.append('static int qrm_solution_count = 0;\n')
         indent(header)
         header.append(f'const int max_qrm_solution_count = {len(nondet_code_blocks)};' + '\n')
@@ -4578,13 +4580,13 @@ def emit_qrm_sequence(args, header):
         indent(header)
         header.append('++ qrm_solution_count;\n')
         indent(header)
-        header.append('if (qrm_solution_count != max_qrm_solution_count){\n')
+        header.append('if (qrm_solution_count != max_qrm_solution_count)\n')
         indent_level += 1
         indent(header)
         header.append('throw (ivy_nondet_except());\n')
         indent_level -= 1
         indent(header)
-        header.append('}\n')
+        header.append('else qrm_solution_count = 0;  // reset\n')
 #### lauren-yrluo added for qrm ####
 
 def emit_call(self,header,ignore_vars=False):
