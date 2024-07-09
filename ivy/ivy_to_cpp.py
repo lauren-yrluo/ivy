@@ -4402,7 +4402,7 @@ def emit_assume(self,header):
 ia.AssumeAction.emit = emit_assume
 
 #### lauren-yrluo added for qrm ####
-def emit_one_assume_solution(model, model_vocab):
+def emit_one_nondet_model(model, model_vocab):
     global indent_level
     code_block = []
     indent_level += 1
@@ -4459,7 +4459,7 @@ def get_block_fmla_for_symbol(symbol, model):
     block_fmla = il.Or(*block_symbols)
     return block_fmla
 
-def block_one_assume_solution(solver, model, model_vocab):
+def block_nondet_model_orbit(solver, model, model_vocab):
     block_fmla = []
     for sym in all_state_symbols():
         if sym.name in im.module.destructor_sorts:
@@ -4471,10 +4471,10 @@ def block_one_assume_solution(solver, model, model_vocab):
                 block_sym_fmla = get_block_fmla_for_symbol(sym, model) 
                 if block_sym_fmla != None: 
                     block_fmla.append(block_sym_fmla)
-    block_fmla = il.And(*block_fmla)
+    block_fmla = il.Or(*block_fmla)
     solver.add(slv.formula_to_z3(block_fmla))
 
-def emit_assume_solutions(formula, model_vocab):
+def emit_nondeterministic_models(formula, model_vocab):
     import faulthandler
     faulthandler.enable()
     solver = slv.z3.Solver()
@@ -4487,9 +4487,9 @@ def emit_assume_solutions(formula, model_vocab):
     while res == slv.z3.sat:
         model = slv.get_model(solver)
         model = slv.HerbrandModel(solver, model, model_vocab)
-        code_block = emit_one_assume_solution(model, model_vocab)
+        code_block = emit_one_nondet_model(model, model_vocab)
         code_blocks.append(code_block)
-        block_one_assume_solution(solver, model, model_vocab)
+        block_nondet_model_orbit(solver, model, model_vocab)
         res = solver.check()
         if res == slv.z3.unsat:
             return code_blocks 
@@ -4522,11 +4522,21 @@ def get_deterministc_used_symbols(actions):
                 symbols.update(ilu.used_symbols_clauses(arg))
     return symbols
 
+def get_axiom_used_symbols():
+    constraints = [ilu.clauses_to_formula(im.module.init_cond)]
+    for a in im.module.axioms:
+        constraints.append(a)
+    for ldf in im.relevant_definitions(ilu.symbols_asts(constraints)):
+        constraints.append(fix_definition(ldf.formula).to_constraint())
+    clauses = ilu.formula_to_clauses(il.And(*constraints))
+    return ilu.used_symbols_clauses(clauses)
+
 def get_nondet_model_vocabulary(nondet_formula, actions):
-    det_symbols = get_deterministc_used_symbols(actions)
+    det_symbols   = get_deterministc_used_symbols(actions)
+    axiom_symbols = get_axiom_used_symbols()
     model_vocab = set()
     for sym in all_state_symbols():
-        if not sym in det_symbols:
+        if not sym in det_symbols and not sym in axiom_symbols:
             model_vocab.add(sym)
     model_vocab.update(ilu.used_symbols_clauses(nondet_formula))
     return model_vocab
@@ -4540,7 +4550,7 @@ def emit_nondeterministic_args(actions):
     if len(nondet_formulas) > 0:
         nondet_formula = il.And(*nondet_formulas)
         model_vocab    = get_nondet_model_vocabulary(nondet_formula, actions)
-        code_blocks = emit_assume_solutions(nondet_formula, model_vocab)
+        code_blocks = emit_nondeterministic_models(nondet_formula, model_vocab)
     return code_blocks
 
 def emit_qrm_sequence(args, header):
