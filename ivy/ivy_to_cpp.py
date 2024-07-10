@@ -4505,7 +4505,9 @@ def get_substitute_map_for_permutation(used_sorts, permutation):
     subst = {}
     for sort in used_sorts:
         for const in sort.extension:
-            subst[const] = il.constant(permutation[const],sort)
+            prev_symbol = il.Symbol(const,sort)
+            next_symbol = il.Symbol(permutation[const],sort)
+            subst[prev_symbol.name] = next_symbol 
     return subst
 
 def get_fmla_orbit(fmla):
@@ -4514,7 +4516,7 @@ def get_fmla_orbit(fmla):
     sorts_permutations = get_sorts_permutations(used_sorts)
     for permutation in sorts_permutations:
         subst = get_substitute_map_for_permutation(used_sorts, permutation) 
-        symmetric_fmla = ilu.substitute_constants_clauses(fmla,subst)
+        symmetric_fmla = ilu.substitute_ast(fmla,subst)
         fmla_orbit.append(symmetric_fmla)
     return fmla_orbit
 
