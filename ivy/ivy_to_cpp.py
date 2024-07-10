@@ -4510,13 +4510,18 @@ def get_substitute_map_for_permutation(used_sorts, permutation):
             subst[prev_symbol.name] = next_symbol 
     return subst
 
+def substitute_formula(fmla,subs):
+    if isinstance(fmla, il.Symbol):
+        return subs.get(fmla.name, fmla)
+    return fmla.clone(substitute_formula(x,subs) for x in fmla.args)
+
 def get_fmla_orbit(fmla):
     fmla_orbit = []
     used_sorts = get_used_sorts(fmla)
     sorts_permutations = get_sorts_permutations(used_sorts)
     for permutation in sorts_permutations:
         subst = get_substitute_map_for_permutation(used_sorts, permutation) 
-        symmetric_fmla = ilu.substitute_ast(fmla,subst)
+        symmetric_fmla = substitute_formula(fmla,subst)
         fmla_orbit.append(symmetric_fmla)
     return fmla_orbit
 
