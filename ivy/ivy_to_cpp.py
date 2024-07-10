@@ -4490,14 +4490,14 @@ def get_sorts_permutations(used_sorts):
     # cartesian product
     sorts_permutations = list(product(*all_sorts_permutations))
     permutation_maps = []
-    for permutation in sorts_permutations:
+    identity_perm    = []
+    for perm_index, permutation in enumerate(sorts_permutations):
         perm_map = {}
-        for sort_perm in permutation:
-            for i in range(len(sort_perm)):
-                if i == len(sort_perm) -1:
-                    perm_map[sort_perm[i]] = sort_perm[0]
-                else:
-                    perm_map[sort_perm[i]] = sort_perm[i+1] 
+        if perm_index == 0: 
+            identity_perm = tuple([sort_perm for sort_perm in permutation])
+        for sort_id, sort_perm in enumerate(permutation):
+            for const_id, const in enumerate(sort_perm):
+                perm_map[identity_perm[sort_id][const_id]] = const
         permutation_maps.append(perm_map)
     return permutation_maps 
 
