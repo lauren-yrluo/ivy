@@ -4489,7 +4489,17 @@ def get_sorts_permutations(used_sorts):
         all_sorts_permutations.append(sort_permutations)
     # cartesian product
     sorts_permutations = list(product(*all_sorts_permutations))
-    return sorts_permutations
+    permutation_maps = []
+    for permutation in sorts_permutations:
+        perm_map = {}
+        for sort_perm in permutation:
+            for i in range(len(sort_perm)):
+                if i == len(sort_perm) -1:
+                    perm_map[sort_perm[i]] = sort_perm[0]
+                else:
+                    perm_map[sort_perm[i]] = sort_perm[i+1] 
+        permutation_maps.append(perm_map)
+    return permutation_maps 
 
 def get_substitute_map_for_permutation(used_sorts, permutation):
     subst = {}
