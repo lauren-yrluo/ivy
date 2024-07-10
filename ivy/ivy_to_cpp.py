@@ -4402,6 +4402,7 @@ def emit_assume(self,header):
 ia.AssumeAction.emit = emit_assume
 
 #### lauren-yrluo added for qrm ####
+from itertools import product, permutations
 def emit_one_nondet_model(model, model_vocab):
     global indent_level
     code_block = []
@@ -4436,7 +4437,7 @@ def eval_symbol_value(eval_func, symbol):
     else:
         return eval_func(symbol)
 
-def get_block_fmla_for_symbol(symbol, model):
+def get_block_fmla_for_one_symbol(symbol, model):
     if slv.solver_name(symbol) == None:
         return None # skip interpreted symbols
     if symbol.name in im.module.destructor_sorts:
@@ -4456,10 +4457,10 @@ def get_block_fmla_for_symbol(symbol, model):
         value = eval_symbol_value(eval_func,symbol)
         if value != None:
             block_symbols.append(il.Not(il.Equals(symbol, value)))
-    block_fmla = il.Or(*block_symbols)
-    return block_fmla
+    block_sym_fmla = il.Or(*block_symbols)
+    return block_sym_fmla
 
-def block_nondet_model_orbit(solver, model, model_vocab):
+def get_block_fmla_for_all_symbols(model, model_vocab):
     block_fmla = []
     for sym in all_state_symbols():
         if sym.name in im.module.destructor_sorts:
@@ -4468,11 +4469,50 @@ def block_nondet_model_orbit(solver, model, model_vocab):
             continue 
         elif sym not in is_derived and not is_native_sym(sym):
             if sym in model_vocab:
-                block_sym_fmla = get_block_fmla_for_symbol(sym, model) 
+                block_sym_fmla = get_block_fmla_for_one_symbol(sym, model) 
                 if block_sym_fmla != None: 
                     block_fmla.append(block_sym_fmla)
     block_fmla = il.Or(*block_fmla)
-    solver.add(slv.formula_to_z3(block_fmla))
+    return block_fmla
+
+def get_used_sorts(block_fmla):
+    used_consts = list(ilu.used_constants_ast(block_fmla))
+    used_sorts  = set()
+    for const in used_consts:
+        used_sorts.add(const.sort)
+    return used_sorts
+
+def get_sorts_permutations(used_sorts):
+    all_sorts_permutations = []
+    for sort in used_sorts:
+        sort_permutations = permutations(sort.extension)
+        all_sorts_permutations.append(sort_permutations)
+    # cartesian product
+    sorts_permutations = list(product(*all_sorts_permutations))
+    return sorts_permutations
+
+def get_substitute_map_for_permutation(used_sorts, permutation):
+    subst = {}
+    for sort in used_sorts:
+        for const in sort.extension:
+            subst[const] = il.constant(permutation[const],sort)
+    return subst
+
+def get_fmla_orbit(fmla):
+    fmla_orbit = []
+    used_sorts = get_used_sorts(fmla)
+    sorts_permutations = get_sorts_permutations(used_sorts)
+    for permutation in sorts_permutations:
+        subst = get_substitute_map_for_permutation(used_sorts, permutation) 
+        symmetric_fmla = ilu.substitute_constants_clauses(fmla,subst)
+        fmla_orbit.append(symmetric_fmla)
+    return fmla_orbit
+
+def block_nondet_model_orbit(solver, model, model_vocab):
+    block_fmla       = get_block_fmla_for_all_symbols(model, model_vocab)
+    block_fmla_orbit = get_fmla_orbit(block_fmla)
+    for fmla in block_fmla_orbit:
+        solver.add(slv.formula_to_z3(fmla))
 
 def emit_nondeterministic_models(formula, model_vocab):
     import faulthandler
