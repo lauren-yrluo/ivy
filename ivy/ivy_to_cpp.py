@@ -4555,8 +4555,8 @@ def emit_nondeterministic_models(formula, model_vocab):
 def emit_deterministic_args(actions):
     det_args    = []
     for i, action in enumerate(actions):
-        if (i != 0 and action.name() == 'assume' or      # let z3 solve assumption
-            action.name() == 'havoc'):                   # x := *
+        if ((action.name() == 'assume' and action.qrm_name != 'requires')  or  # let z3 solve assumption
+            action.name() == 'havoc'): # x := *
             continue
         else:
             det_args.append(action)
@@ -4571,8 +4571,8 @@ def emit_deterministic_args(actions):
 def get_deterministc_used_symbols(actions):
     symbols = set()
     for i, action in enumerate(actions):
-        if (i != 0 and action.name() == 'assume' or      # let z3 solve assumption
-            action.name() == 'havoc'):                   # x := *
+        if ((action.name() == 'assume' and action.qrm_name != 'requires')  or  # let z3 solve assumption
+            action.name() == 'havoc'): # x := *
             continue
         else:
             for arg in action.args:
@@ -4601,7 +4601,7 @@ def get_nondet_model_vocabulary(nondet_formula, actions):
 def emit_nondeterministic_args(actions):
     nondet_formulas = []
     for i, action in enumerate(actions):
-        if i != 0 and action.name() == 'assume': 
+        if action.name() == 'assume' and action.qrm_name != 'requires':
             nondet_formulas.append(action.formula)
     code_blocks = []
     if len(nondet_formulas) > 0:

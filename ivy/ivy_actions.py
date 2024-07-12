@@ -307,9 +307,10 @@ class Action(AST):
         return res
 
 class AssumeAction(Action):
-    def __init__(self,*args):
+    def __init__(self,*args):  
         assert len(args) == 1
         self.args = args
+        self.qrm_name = ''      # lauren-yrluo added
     sort_infer_root = True
     def name(self):
         return 'assume'
@@ -360,13 +361,16 @@ class AssertAction(Action):
 #        return ([],formula_to_clauses_tseitin(self.args[0]),cl)
         cl = Clauses(cl.fmlas,cl.defs,EmptyAnnotation())
         return ([],true_clauses(annot = EmptyAnnotation()),cl)
-    def assert_to_assume(self,kinds):
+    def assert_to_assume(self,kinds): 
         mykind = self.kind if hasattr(self,'kind') else type(self)
         if mykind not in kinds:
             return Action.assert_to_assume(self,kinds)
-        res = AssumeAction(*self.args)
+        res = AssumeAction(*self.args) 
         ivy_ast.copy_attributes_ast(self,res)
         self.copy_formals(res)
+        # lauren-yrluo added qrm_flag 
+        if hasattr(self, 'qrm_requires_flag'):
+            res.qrm_name = 'requires'
         return res
     
 # Prior to version 1.7, Ensures is always verified
@@ -378,6 +382,9 @@ class EnsuresAction(AssertAction):
         return AssertAction.assert_to_assume(self,kinds)
 
 class RequiresAction(AssertAction):
+    # lauren-yrluo added qrm_flag 
+    def qrm_requires_flag(self):
+        return True
     pass
 
 class SubgoalAction(AssertAction):
