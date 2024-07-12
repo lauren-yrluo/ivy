@@ -4622,9 +4622,9 @@ def emit_nondeterministic_args(actions, is_init_action):
         #     nondet_formulas.append(il.Or(*havoc_clause))
 
     code_blocks = []
-    if len(nondet_formulas) > 0:
-        nondet_formula = il.And(*nondet_formulas)
-        model_vocab    = get_nondet_model_vocabulary(actions, nondet_formula, is_init_action)
+    nondet_formula = il.And(*nondet_formulas)
+    model_vocab = get_nondet_model_vocabulary(actions, nondet_formula, is_init_action)
+    if len(model_vocab) > 0:
         code_blocks    = emit_nondeterministic_models(nondet_formula, model_vocab)
     return code_blocks
 
