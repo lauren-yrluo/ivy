@@ -1649,7 +1649,10 @@ def emit_initial_action(header,impl,classname):
     if target.get() == "qrm":  # lauren-yrluo added
         for action in im.module.initializers:
             action = action[1]
-            action.emit(impl)
+            if isinstance(action, ia.Sequence):
+                emit_qrm_sequence(action.args, impl, is_init_action=True)
+            else:
+                action.emit(impl)
     close_scope(impl)
     
 int_ctypes = ["bool","int","long long","unsigned","unsigned long long"]
@@ -4554,7 +4557,7 @@ def emit_nondeterministic_models(formula, model_vocab):
 
 def emit_deterministic_args(actions):
     det_args    = []
-    for i, action in enumerate(actions):
+    for action in actions:
         if ((action.name() == 'assume' and action.qrm_name != 'requires')  or  # let z3 solve assumption
             action.name() == 'havoc'): # x := *
             continue
@@ -4570,9 +4573,9 @@ def emit_deterministic_args(actions):
 
 def get_deterministc_used_symbols(actions):
     symbols = set()
-    for i, action in enumerate(actions):
-        if ((action.name() == 'assume' and action.qrm_name != 'requires')  or  # let z3 solve assumption
-            action.name() == 'havoc'): # x := *
+    for action in actions:
+        if (action.name() == 'assume' or  # let z3 solve assumption
+            action.name() == 'havoc'):    # x := *
             continue
         else:
             for arg in action.args:
@@ -4588,32 +4591,47 @@ def get_axiom_used_symbols():
     clauses = ilu.formula_to_clauses(il.And(*constraints))
     return ilu.used_symbols_clauses(clauses)
 
-def get_nondet_model_vocabulary(nondet_formula, actions):
+def get_nondet_model_vocabulary(actions, nondet_formula, is_init_action):
     det_symbols   = get_deterministc_used_symbols(actions)
     axiom_symbols = get_axiom_used_symbols()
     model_vocab = set()
-    for sym in all_state_symbols():
-        if not sym in det_symbols and not sym in axiom_symbols:
-            model_vocab.add(sym)
+    if is_init_action:  # include all uninitialized relations
+        for sym in all_state_symbols():
+            if not sym in det_symbols and not sym in axiom_symbols:
+                model_vocab.add(sym)
     model_vocab.update(ilu.used_symbols_clauses(nondet_formula))
     return model_vocab
 
-def emit_nondeterministic_args(actions):
-    nondet_formulas = []
-    for i, action in enumerate(actions):
+def emit_nondeterministic_args(actions, is_init_action):
+    nondet_formulas      = []
+    for action in actions:
         if action.name() == 'assume' and action.qrm_name != 'requires':
             nondet_formulas.append(action.formula)
+        # elif action.name() == 'havoc':
+        #     # instantiate all havoc assignments
+        #     havoc_symbol = action.args[0]
+        #     range_sort   = havoc_symbol.rep.sort.rng
+        #     havoc_clause = []
+        #     if isinstance(range_sort, lg.BooleanSort):
+        #         havoc_clause.append(il.Equals(havoc_symbol, il.And()))
+        #         havoc_clause.append(il.Equals(havoc_symbol, il.Or()))
+        #     elif isinstance(range_sort, lg.EnumeratedSort):
+        #         for const_name in range_sort.extension:
+        #             const_symbol = il.Symbol(const_name,range_sort)
+        #             havoc_clause.append(il.Equals(havoc_symbol, const_symbol))
+        #     nondet_formulas.append(il.Or(*havoc_clause))
+
     code_blocks = []
     if len(nondet_formulas) > 0:
         nondet_formula = il.And(*nondet_formulas)
-        model_vocab    = get_nondet_model_vocabulary(nondet_formula, actions)
-        code_blocks = emit_nondeterministic_models(nondet_formula, model_vocab)
+        model_vocab    = get_nondet_model_vocabulary(actions, nondet_formula, is_init_action)
+        code_blocks    = emit_nondeterministic_models(nondet_formula, model_vocab)
     return code_blocks
 
-def emit_qrm_sequence(args, header):
+def emit_qrm_sequence(args, header, is_init_action=False):
     global indent_level
     det_code_block     = emit_deterministic_args(args)
-    nondet_code_blocks = emit_nondeterministic_args(args)
+    nondet_code_blocks = emit_nondeterministic_args(args, is_init_action)
     if len(nondet_code_blocks) == 0:
         header.extend(det_code_block)
     else:
