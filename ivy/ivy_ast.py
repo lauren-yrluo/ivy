@@ -28,12 +28,15 @@ class AST(object):
     def __init__(self,*args):
         self.args = args
     def clone(self,args):
-       res = type(self)(*args)
-       if hasattr(self,'lineno'):
+        res = type(self)(*args)
+        if hasattr(self,'lineno'):
 #           if reference_lineno:
 #               print 'cloning'.format(self)
-           res.lineno = lineno_add_ref(self.lineno)
-       return res
+            res.lineno = lineno_add_ref(self.lineno)
+        # lauren-yrluo added
+        if hasattr(self, 'qrm_name'):
+            res.qrm_name = self.qrm_name
+        return res
     def sln(self,lineno):
         self.lineno = lineno
         return self
