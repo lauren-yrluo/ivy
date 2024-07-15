@@ -4557,8 +4557,11 @@ def emit_nondeterministic_models(formula, model_vocab):
 
 def emit_deterministic_args(actions):
     det_args    = []
+    is_require_block = True 
     for action in actions:
-        if ((action.name() == 'assume' and action.qrm_name != 'requires')  or  # let z3 solve assumption
+        if action.name() != 'assume':
+            is_require_block = False
+        if ((action.name() == 'assume' and not is_require_block)  or  # let z3 solve assumption
             action.name() == 'havoc'): # x := *
             continue
         else:
@@ -4574,7 +4577,7 @@ def emit_deterministic_args(actions):
 def get_deterministc_used_symbols(actions):
     symbols = set()
     for action in actions:
-        if (action.name() == 'assume' or  # let z3 solve assumption
+        if (action.name() == 'assume' or  # either action requirement or nondet assignment 
             action.name() == 'havoc'):    # x := *
             continue
         else:
@@ -4603,9 +4606,12 @@ def get_nondet_model_vocabulary(actions, nondet_formula, is_init_action):
     return model_vocab
 
 def emit_nondeterministic_args(actions, is_init_action):
-    nondet_formulas      = []
+    nondet_formulas  = []
+    is_require_block = True 
     for action in actions:
-        if action.name() == 'assume' and action.qrm_name != 'requires':
+        if action.name() != 'assume':
+            is_require_block = False
+        if action.name() == 'assume' and not is_require_block:
             nondet_formulas.append(action.formula)
         # elif action.name() == 'havoc':
         #     # instantiate all havoc assignments
