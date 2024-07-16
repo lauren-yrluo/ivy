@@ -940,6 +940,9 @@ class ComposeTactics(Tactic):
         for arg in self.args:
             arg.vocab(names)
 
+class Trigger(AST):
+    def __repr__(self):
+        return 'trigger' + str(self.args[0]) + ' with ' + ','.join(str(s) for s in self.args[1:])  
 
 class Instantiation(AST):
     def __init__(self,*args):
