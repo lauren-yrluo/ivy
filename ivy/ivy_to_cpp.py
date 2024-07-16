@@ -4535,8 +4535,6 @@ def block_nondet_model_orbit(solver, model, model_vocab):
         solver.add(slv.formula_to_z3(fmla))
 
 def emit_nondeterministic_models(formula, model_vocab):
-    import faulthandler
-    faulthandler.enable()
     solver = slv.z3.Solver()
     solver.add(slv.formula_to_z3(formula))
     res = solver.check()
