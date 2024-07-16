@@ -28,15 +28,12 @@ class AST(object):
     def __init__(self,*args):
         self.args = args
     def clone(self,args):
-        res = type(self)(*args)
-        if hasattr(self,'lineno'):
+       res = type(self)(*args)
+       if hasattr(self,'lineno'):
 #           if reference_lineno:
 #               print 'cloning'.format(self)
-            res.lineno = lineno_add_ref(self.lineno)
-        # lauren-yrluo added
-        if hasattr(self, 'qrm_name'):
-            res.qrm_name = self.qrm_name
-        return res
+           res.lineno = lineno_add_ref(self.lineno)
+       return res
     def sln(self,lineno):
         self.lineno = lineno
         return self
@@ -943,9 +940,6 @@ class ComposeTactics(Tactic):
         for arg in self.args:
             arg.vocab(names)
 
-class Trigger(AST):
-    def __repr__(self):
-        return 'trigger' + str(self.args[0]) + ' with ' + ','.join(str(s) for s in self.args[1:])  
 
 class Instantiation(AST):
     def __init__(self,*args):
